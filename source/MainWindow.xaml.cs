@@ -11,6 +11,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using System.Diagnostics;
 
 namespace mainRPC
 {
@@ -28,17 +29,140 @@ namespace mainRPC
         private string Button1_Url;
         private string Button2_Label;
         private string Button2_Url;
-        private bool autoInit = false;
+        private bool autoInit;
+
+
         private bool isConnected = false;
+        private bool isDiscordOpen = false;
+        private bool userDisposed = false;
 
         private DispatcherTimer _activityTimer;
         private DateTime _activityStartTime;
+        private DispatcherTimer _checkProcess;
 
 
         public MainWindow()
         {
             InitializeComponent();
         }
+
+        //WINDOW LOADED
+
+        private void WinLoaded(object sender, RoutedEventArgs e)
+        {
+            Setup();
+            _activityTimer = new DispatcherTimer();
+            _activityTimer.Interval = TimeSpan.FromSeconds(1);
+            _activityTimer.Tick += ActivityTimer_Tick;
+
+            _checkProcess = new DispatcherTimer();
+            _checkProcess.Interval = TimeSpan.FromMilliseconds(1500);
+            _checkProcess.Tick += checkProcess;
+            _checkProcess.Start();
+        }
+
+        //SETUP
+
+
+        private void Setup()
+        {
+            //Settuping tray (TO DO)
+
+            
+
+            //GRABING CONFIG SETTINGS
+            fetchConfig();
+
+            if (!string.IsNullOrEmpty(clientId))
+            {
+                try
+                {
+
+                    if (!autoInit)
+                    {
+                        Initialize_Button.IsEnabled = true;
+                        Dispose_Button.IsEnabled = false;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Cannot initialize client: {ex}");
+                    Initialize_Button.IsEnabled = true;
+                    Dispose_Button.IsEnabled = false;
+                }
+            }
+            else
+            {
+                Properties.Settings.Default.details = "DETAILS HERE";
+                Properties.Settings.Default.state = "STATE HERE";
+                Properties.Settings.Default.Button1Label = "LABEL 1";
+                Properties.Settings.Default.Button1Url = "https://example.com/";
+                Properties.Settings.Default.Button2Label = "LABEL 2";
+                Properties.Settings.Default.Button2Url = "https://example.com/";
+                Properties.Settings.Default.clientId = "YOUR APPLICATION ID HERE";
+                Properties.Settings.Default.autoInitialize = false;
+
+                Properties.Settings.Default.Save();
+                fetchConfig();
+
+                MessageBox.Show("Start config created.");
+
+                Initialize_Button.IsEnabled = true;
+                Dispose_Button.IsEnabled = false;
+            }
+
+        }
+
+        //FETCH SETTINGS
+        private void fetchConfig()
+        {
+
+            //from settings to variables
+
+            details = Properties.Settings.Default.details;
+            state = Properties.Settings.Default.state;
+            Button1_Label = Properties.Settings.Default.Button1Label;
+            Button1_Url = Properties.Settings.Default.Button1Url;
+            Button2_Label = Properties.Settings.Default.Button2Label;
+            Button2_Url = Properties.Settings.Default.Button2Url;
+            clientId = Properties.Settings.Default.clientId;
+
+            //AUTO INIT
+            autoInit = Properties.Settings.Default.autoInitialize;
+
+            //set text to ui in main menu
+
+            ActivityDetails_TextBlock.Text = details;
+            ActivityState_TextBlock.Text = state;
+            Button1_TextBlock.Text = Button1_Label;
+            Button2_TextBlock.Text = Button2_Label;
+            ActivityID_TextBlock.Text = clientId;
+
+            if (autoInit)
+            {
+                AutoInitialize_TextBlock.Text = "AutoInitialize: True";
+            }
+            else
+            {
+                AutoInitialize_TextBlock.Text = "AutoInitialize: False";
+            }
+
+            //-----------------------------------
+
+            //set text from settings to ui elements in config editor menu
+
+            Details_TextBox.Text = Properties.Settings.Default.details;
+            State_TextBox.Text = Properties.Settings.Default.state;
+            Button1Label_TextBox.Text = Properties.Settings.Default.Button1Label;
+            Button1Url_TextBox.Text = Properties.Settings.Default.Button1Url;
+            Button2Label_TextBox.Text = Properties.Settings.Default.Button2Label;
+            Button2Url_TextBox.Text = Properties.Settings.Default.Button2Url;
+            ClientID_TextBox.Text = Properties.Settings.Default.clientId;
+
+            //---------------------------------------
+        }
+
+        //DISPATCHER TIMERS
 
         private void ActivityTimer_Tick(object sender, EventArgs e)
         {
@@ -58,128 +182,27 @@ namespace mainRPC
             }
         }
 
-
-        private void WinLoaded(object sender, RoutedEventArgs e)
+        private void checkProcess(object sender, EventArgs e)
         {
-            Setup();
-            _activityTimer = new DispatcherTimer();
-            _activityTimer.Interval = TimeSpan.FromSeconds(1);
-            _activityTimer.Tick += ActivityTimer_Tick;
-        }
+            isDiscordOpen = Process.GetProcessesByName("Discord").Any();
 
-        private void SetImage(string source, Image element)
-        {
-            if (!string.IsNullOrEmpty(source))
-            {
-                try
-                {
-                    BitmapImage image = new BitmapImage();
-                    image.BeginInit();
-                    image.UriSource = new Uri(source);
-                    image.CacheOption = BitmapCacheOption.OnLoad;
-                    image.EndInit();
-
-                    element.Source = image;
-                }
-                catch
-                {
-                    MessageBox.Show($"Cannot get image for {element}");
-                }
-            }
-        }
-
-        private void Close_ButtonClick(object sender, RoutedEventArgs e)
-        {
-            this.Close();
-        }
-
-        private void EditConfig_ButtonClick(object sender, RoutedEventArgs e)
-        {
-            ConfigEditorGrid.Visibility = Visibility.Visible;
-        }
-
-        private void SaveConfig_ButtonClick(object sender, RoutedEventArgs e)
-        {
-            Properties.Settings.Default.details = Details_TextBox.Text;
-            Properties.Settings.Default.state = State_TextBox.Text;
-            Properties.Settings.Default.Button1Label = Button1Label_TextBox.Text;
-            Properties.Settings.Default.Button1Url = Button1Url_TextBox.Text;
-            Properties.Settings.Default.Button2Label = Button2Label_TextBox.Text;
-            Properties.Settings.Default.Button2Url = Button2Url_TextBox.Text;
-            Properties.Settings.Default.clientId = ClientID_TextBox.Text;
-
-            Properties.Settings.Default.Save();
-            ConfigEditorGrid.Visibility = Visibility.Hidden;
-
-            details = Properties.Settings.Default.details;
-            state = Properties.Settings.Default.state;
-            Button1_Label = Properties.Settings.Default.Button1Label;
-            Button1_Url = Properties.Settings.Default.Button1Url;
-            Button2_Label = Properties.Settings.Default.Button2Label;
-            Button2_Url = Properties.Settings.Default.Button2Url;
-            clientId = Properties.Settings.Default.clientId;
-
-            ActivityDetails_TextBlock.Text = details;
-            ActivityState_TextBlock.Text = state;
-            Button1_TextBlock.Text = Button1_Label;
-            Button2_TextBlock.Text = Button2_Label;
-            ActivityID_TextBlock.Text = clientId;
-
-            fetchConfig();
-
-        }
-        private void CloseConfigEditor_ButtonClick(object sender, RoutedEventArgs e)
-        {
-            ConfigEditorGrid.Visibility = Visibility.Hidden;
-        }
-
-        private void Initialize_ButtonClick(object sender, RoutedEventArgs e)
-        {
-            if (!isConnected)
+            if (isDiscordOpen && autoInit && !isConnected && !userDisposed)
             {
                 Initialize();
+                Dispose_Button.IsEnabled = true;
+                Initialize_Button.IsEnabled = false;
+            }
+
+            if (!isDiscordOpen && isConnected)
+            {
+                Dispose_ButtonClick(null, null);
+                userDisposed = false;
             }
         }
 
-        private void Dispose_ButtonClick(object sender, RoutedEventArgs e)
-        {
-            _activityTimer?.Stop();
+        //----------------------------------------------------------
 
-            _client?.Dispose();
-            _client = null;
-            isConnected = false;
-
-            Timestamp_TextBlock.Text = "0:00";
-
-            Dispose_Button.IsEnabled = false;
-            Initialize_Button.IsEnabled = true;
-
-        }
-
-        private void fetchConfig()
-        {
-            details = Properties.Settings.Default.details;
-            state = Properties.Settings.Default.state;
-            Button1_Label = Properties.Settings.Default.Button1Label;
-            Button1_Url = Properties.Settings.Default.Button1Url;
-            Button2_Label = Properties.Settings.Default.Button2Label;
-            Button2_Url = Properties.Settings.Default.Button2Url;
-            clientId = Properties.Settings.Default.clientId;
-
-            ActivityDetails_TextBlock.Text = details;
-            ActivityState_TextBlock.Text = state;
-            Button1_TextBlock.Text = Button1_Label;
-            Button2_TextBlock.Text = Button2_Label;
-            ActivityID_TextBlock.Text = clientId;
-
-            Details_TextBox.Text = Properties.Settings.Default.details;
-            State_TextBox.Text = Properties.Settings.Default.state;
-            Button1Label_TextBox.Text = Properties.Settings.Default.Button1Label;
-            Button1Url_TextBox.Text = Properties.Settings.Default.Button1Url;
-            Button2Label_TextBox.Text = Properties.Settings.Default.Button2Label;
-            Button2Url_TextBox.Text = Properties.Settings.Default.Button2Url;
-            ClientID_TextBox.Text = Properties.Settings.Default.clientId;
-        }
+        //FUNCS
 
         private void Initialize()
         {
@@ -216,7 +239,7 @@ namespace mainRPC
                 {
                     Details = details,
                     State = state,
-                    
+
                     Buttons = buttons.ToArray()
                 });
 
@@ -239,54 +262,130 @@ namespace mainRPC
             _client.Initialize();
         }
 
-        private void Setup()
+        private void SetImage(string source, Image element)
         {
-            //GRABING CONFIG SETTINGS
-            fetchConfig();    
-
-            if (!string.IsNullOrEmpty(clientId))
+            if (!string.IsNullOrEmpty(source))
             {
                 try
-                {         
-
-                    if (autoInit)
-                    {
-                        Initialize(); 
-                    }
-                    else
-                    {
-                        Initialize_Button.IsEnabled = true;
-                        Dispose_Button.IsEnabled = false;
-                    }
-                }
-                catch (Exception ex)
                 {
-                    MessageBox.Show($"Cannot initialize client: {ex}");
-                    Initialize_Button.IsEnabled = true;
-                    Dispose_Button.IsEnabled = false;
+                    BitmapImage image = new BitmapImage();
+                    image.BeginInit();
+                    image.UriSource = new Uri(source);
+                    image.CacheOption = BitmapCacheOption.OnLoad;
+                    image.EndInit();
+
+                    element.Source = image;
+                }
+                catch
+                {
+                    MessageBox.Show($"Cannot get image for {element}");
                 }
             }
-            else
-            {
-                Properties.Settings.Default.details = "DETAILS HERE";
-                Properties.Settings.Default.state = "STATE HERE";
-                Properties.Settings.Default.Button1Label = "LABEL 1";
-                Properties.Settings.Default.Button1Url = "https://example.com/";
-                Properties.Settings.Default.Button2Label = "LABEL 2";
-                Properties.Settings.Default.Button2Url = "https://example.com/";
-                Properties.Settings.Default.clientId = "YOUR APPLICATION ID HERE";
+        }
 
-                Properties.Settings.Default.Save();
-                fetchConfig();
+        //-----------------------------------------------------
 
-                MessageBox.Show("Start config created.");
+        //UI BUTTONS
 
-                Initialize_Button.IsEnabled = true;
-                Dispose_Button.IsEnabled = false;
-            }
+        private void Close_ButtonClick(object sender, RoutedEventArgs e)
+        {
+            this.Close();
+        }
+
+        private void MinimizeToTray_ButtonClick(object sender, RoutedEventArgs e)
+        {
+            this.WindowState = WindowState.Minimized;
+        }
+
+        private void EditConfig_ButtonClick(object sender, RoutedEventArgs e)
+        {
+            ConfigEditorGrid.Visibility = Visibility.Visible;
+        }
+
+        private void SaveConfig_ButtonClick(object sender, RoutedEventArgs e)
+        {
+            //Patching settings
+
+            Properties.Settings.Default.details = Details_TextBox.Text;
+            Properties.Settings.Default.state = State_TextBox.Text;
+            Properties.Settings.Default.Button1Label = Button1Label_TextBox.Text;
+            Properties.Settings.Default.Button1Url = Button1Url_TextBox.Text;
+            Properties.Settings.Default.Button2Label = Button2Label_TextBox.Text;
+            Properties.Settings.Default.Button2Url = Button2Url_TextBox.Text;
+            Properties.Settings.Default.clientId = ClientID_TextBox.Text;
+
+            Properties.Settings.Default.Save();
+
+            //-------------------
+
+            //
+
+            ConfigEditorGrid.Visibility = Visibility.Hidden;
+
+            //details = Properties.Settings.Default.details;
+            //state = Properties.Settings.Default.state;
+            //Button1_Label = Properties.Settings.Default.Button1Label;
+            //Button1_Url = Properties.Settings.Default.Button1Url;
+            //Button2_Label = Properties.Settings.Default.Button2Label;
+            //Button2_Url = Properties.Settings.Default.Button2Url;
+            //clientId = Properties.Settings.Default.clientId;
+
+            //ActivityDetails_TextBlock.Text = details;
+            //ActivityState_TextBlock.Text = state;
+            //Button1_TextBlock.Text = Button1_Label;
+            //Button2_TextBlock.Text = Button2_Label;
+            //ActivityID_TextBlock.Text = clientId;
+
+            fetchConfig();
 
         }
 
-        
+        private void CloseConfigEditor_ButtonClick(object sender, RoutedEventArgs e)
+        {
+            ConfigEditorGrid.Visibility = Visibility.Hidden;
+        }
+
+        private void Initialize_ButtonClick(object sender, RoutedEventArgs e)
+        {
+            if (!isConnected)
+            {
+                userDisposed = false;
+                Initialize();
+            }
+        }
+
+        private void Dispose_ButtonClick(object sender, RoutedEventArgs e)
+        {
+            _activityTimer?.Stop();
+
+            _client?.Dispose();
+            _client = null;
+            isConnected = false;
+
+            Timestamp_TextBlock.Text = "0:00";
+
+            Dispose_Button.IsEnabled = false;
+            Initialize_Button.IsEnabled = true;
+
+            userDisposed = true;
+
+        }
+        private void AutoInitialize_ButtonClick(object sender, RoutedEventArgs e)
+        {
+            if (autoInit)
+            {
+                autoInit = false;
+                AutoInitialize_TextBlock.Text = "AutoInitialize: False";
+            }
+            else
+            {
+                autoInit = true;
+                AutoInitialize_TextBlock.Text = "AutoInitialize: True";
+            }
+
+            Properties.Settings.Default.autoInitialize = autoInit;
+        }
+
+        //-----------------------------------------------------
     }
 }
